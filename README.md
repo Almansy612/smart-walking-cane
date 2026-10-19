@@ -65,7 +65,7 @@ The control loop runs at **10 Hz** with a **safety-ordered arbitration ladder**:
 
 Raspberry Pi 5 · IMX219 camera (CSI-2) · u-blox NEO-M8N GPS (UART) · MPU-6500 + QMC5883L (I²C) · 5× ERM motors · S8050 NPN drivers · 10,000 mAh USB-C PD power bank · hand-moulded handle
 
-GPIO map: see [`images/gpio-pinout.png`](images/gpio-pinout.png). Detector per-class accuracy: [`images/per-class-ap.png`](images/per-class-ap.png).
+Wiring: [`images/wiring-guide.png`](images/wiring-guide.png) (design-stage guide; motor GPIOs were re-mapped at assembly, see `haptic_output.py`). Detector per-class accuracy: [`images/per-class-ap.png`](images/per-class-ap.png).
 
 ## Tech stack
 
@@ -73,12 +73,35 @@ Python · Raspberry Pi 5 · Picamera2 · OpenCV · YOLOv11 · Roboflow Inference
 
 ## Code
 
-The core decision logic is summarised in [`src/core_logic.md`](src/core_logic.md) (abbreviated listings from the report). Modules:
+All five modules are in [`src/`](src). **The whole decision layer runs and is tested on any laptop, no hardware needed**: every module has a deterministic `--selftest`, and `main.py --sim` drives the real navigator, heading filter and haptic driver through a simulated walk. The walk includes GPS dropout, a disorientation event, an obstacle and a vision outage.
+
+```bash
+cd src
+python main.py --sim              # end-to-end simulation, standard library only
+python gps_navigator.py --selftest
+python imu_filter.py --selftest
+python yolo_detector.py --selftest
+python haptic_output.py --selftest
+# or run_tests.bat on Windows
+
+python main.py                    # on the Pi 5 with all sensors (pip install -r requirements.txt)
+python imu_filter.py --calibrate  # 30 s figure-8 hard-iron calibration
+```
 
 | File | Role |
 |---|---|
-| `main.py` | Orchestrator and 10 Hz arbitration loop, per-tick CSV logging |
-| `gps_navigator.py` | Haversine, bearing, heading error with hysteresis, arrival/turn-back state machine |
-| `imu_filter.py` | Complementary filter and motor-pulse blanking |
-| `yolo_detector.py` | Inference client, corridor and range gating, calibration and evidence-capture tooling |
-| `haptic_output.py` | Finger-allocated motor driver with refractory period and alert pattern |
+| `main.py` | Orchestrator: 10 Hz safety-ordered arbitration (stop > GPS-lost > turn > forward), fail-safes, per-tick CSV logging, `--sim` mode |
+| `gps_navigator.py` | NEO-M8N NMEA reader, Haversine distance and bearing, heading error with hysteresis, arrival / turn-back / GPS-loss state machine |
+| `imu_filter.py` | Complementary filter (α = 0.98), hard-iron calibration, motor-pulse magnetometer blanking, sweep-yaw separation, `WHO_AM_I` identity check, and an auto-detecting HMC5883L / QMC5883L driver |
+| `yolo_detector.py` | Roboflow inference client, pinhole ground-range geometry, sweep-corrected corridor gate, 1.5 s obstacle memory |
+| `haptic_output.py` | Finger-allocated ERM driver with per-finger refractory, alert pattern and route-complete double pulse |
+
+[`logs/sim_run.csv`](logs/sim_run.csv) is a sample per-tick log from the simulation. It has the same columns the walk-test logs were analysed from.
+
+> The modules are the June 2026 build, with the final Phase 2 `imu_filter.py` (external magnetometer after the counterfeit-IMU finding). The motor pin map is the as-built loom. The Phase 2 evidence-capture and calibration tooling in `yolo_detector.py` ran on the Pi and is described in the report.
+
+## Poster
+
+<img src="images/poster.png" alt="Project poster" width="600">
+
+Full-resolution versions: [poster (PDF)](docs/poster.pdf) and [breadboard wiring guide (PDF)](docs/breadboard-wiring.pdf).

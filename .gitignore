@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+logs/run_*.csv
+src/sim_run.csv
+imu_cal.json

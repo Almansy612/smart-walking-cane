@@ -1,0 +1,9 @@
+# Deployment dependencies (Raspberry Pi 5).
+# All --selftest suites and `python main.py --sim` run with NONE of these —
+# pure standard library — so development continues on any laptop.
+pyserial          # gps_navigator : NEO-M8N over UART (/dev/ttyAMA0)
+smbus2            # imu_filter    : MPU-9250 + AK8963 over I2C
+gpiozero          # haptic_output : GPIO abstraction
+lgpio             # gpiozero's backend for the Pi 5 RP1 I/O controller
+opencv-python     # camera capture and bench overlay
+inference-sdk     # yolo_detector : client for the Roboflow Docker server
